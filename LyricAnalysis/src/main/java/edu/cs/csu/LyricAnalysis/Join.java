@@ -85,7 +85,7 @@ public class Join {
         TextInputFormat.class, spotifyMapper.class);
     MultipleInputs.addInputPath(job1, new Path(args[1]),
         TextInputFormat.class, lyricMapper.class);
-    FileOutputFormat.setOutputPath(job1, new Path("Unigram"));
+    FileOutputFormat.setOutputPath(job1, new Path("Joined"));
     job1.waitForCompletion(true);
   }
 
