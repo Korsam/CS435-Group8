@@ -1,5 +1,6 @@
 import java.io.IOException;
 import java.text.Normalizer;
+
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -21,6 +22,14 @@ import org.apache.commons.csv.CSVRecord;
  * in project dir. The shade plugin will result in the generation of 2 jars in the /target directory with project folder.
  * The one with the 'uber-' prefix is gonna be a beefy sob but it's the one you want. It will have all
  * Maven dependencies bundled up with the jar so it will be more portable.
+ *
+ * Lyric data requires preprocessing to remove newlines within quoted lyric columns.
+ * The command to achieve this is supplied in the lyricMapper class.
+ *
+ * Command line args:
+ *  * 1. Path to rank data directory
+ *  * 2. Path to lyric data directory
+ *  * 3. Output path
  */
 
 public class Join {
@@ -28,12 +37,6 @@ public class Join {
   //=== MAPPERS ===
   public static class spotifyMapper
       extends Mapper<LongWritable, Text, Text, Text> {
-
-    /**
-     * Spotify data requires preprocessing to remove newlines within quoted columns.
-     * This can be achieved with the following Unix command:
-     *  gawk -v RS='"' 'NR % 2 == 0 { gsub(/\n/, " ") } { printf("%s%s", $0, RT) }' INPUT.csv > OUTPUT.csv
-     */
 
     private Text position = new Text();
     private Text artist = new Text();
@@ -108,6 +111,12 @@ public class Join {
 
   public static class lyricMapper
       extends Mapper<LongWritable, Text, Text, Text> {
+
+    /**
+     * Lyric data requires preprocessing to remove newlines within quoted lyrics columns.
+     * This can be achieved with the following Unix command:
+     *  gawk -v RS='"' 'NR % 2 == 0 { gsub(/\n/, " ") } { printf("%s%s", $0, RT) }' INPUT.csv > OUTPUT.csv
+     */
 
     private Text index = new Text();
     private Text track = new Text();
