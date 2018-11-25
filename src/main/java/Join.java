@@ -35,7 +35,7 @@ import org.apache.commons.csv.CSVRecord;
  *  * 2. Path to 380k lyrics
  *  * 3. Path to 55k lyrics
  *  * 4. Path to 500k lyrics
- *  * 4. Output path
+ *  * 5. Output path
  */
 
 public class Join {
@@ -261,7 +261,7 @@ public class Join {
 
           artist.set(sanitize(line.get(0)));
           lyrics.set(
-              normalize(line.get(1))                  //Replace all accented characters with standard ASCII a-zA-Z
+              line.get(1)                             //Replace all accented characters with standard ASCII a-zA-Z
               .replaceAll("[^A-Za-z0-9 ]", "")  //Remove all remaining non-alphanumeric characters
               .replaceAll(" +", " ")            //Replace repeated spaces with a single space
               .toLowerCase()
@@ -312,10 +312,12 @@ public class Join {
 
       String spotifyRecord = "";
       String lyricsRecord = "";
+      int spotifyCount = 0;
 
       for (Text record : records) {
         switch (record.charAt(0)){
           case 's':
+            spotifyCount++;
             spotifyRecord = record.toString().substring(1); break;
           case 'l':
             lyricsRecord = record.toString().substring(1); break;
@@ -324,7 +326,7 @@ public class Join {
 
       if (spotifyRecord.equals("") || lyricsRecord.equals("")) return;
 
-      result.set(key + "\t" + spotifyRecord + "\t" + lyricsRecord);
+      result.set(spotifyCount + "\t" + key + "\t" + spotifyRecord + "\t" + lyricsRecord);
       context.write(result, NullWritable.get());
     }
   }
