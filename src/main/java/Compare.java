@@ -18,8 +18,8 @@ public class Compare {
         private static Text song = new Text("Song");
         public void map(Object key, Text value, Context context) throws InterruptedException, IOException{
             String val = value.toString();
-            if(val.length()==0){
-                String[] input = val.split("\\s+");
+            if(val.length()!=0){
+                String[] input = val.split("\\t");
                 String title = input[0];
                 String artist = input[1];
                 String lyrics = input[2];
@@ -28,6 +28,8 @@ public class Compare {
                 for(String s:lyricSplit) {
                     if (counts.containsKey(s)) {
                         counts.put(s, counts.get(s));
+                    }else {
+                    	counts.put(s, 1);
                     }
                 }
                 for(String s:counts.keySet()) {
@@ -40,7 +42,7 @@ public class Compare {
     public static class RegionMapper extends Mapper<Object, Text, Text, Text> {
         private static Text region = new Text("Region");
         public void map(Object key, Text value, Context context) throws InterruptedException, IOException{
-            if(value.toString().length()==0) context.write(region, value);
+            if(value.toString().length()!=0) context.write(region, value);
         }
     }
 
