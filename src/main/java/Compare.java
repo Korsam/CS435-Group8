@@ -1,4 +1,3 @@
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -7,7 +6,6 @@ import org.apache.commons.math3.util.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DoubleWritable;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -25,9 +23,8 @@ public class Compare {
             String val = value.toString();
             if(val.length()!=0){
                 String[] input = val.split("\t");
-                String title = input[0];
-                String artist = input[1];
-                String lyrics = input[2];
+                // Title index 1, Artist index 2
+                String lyrics = input[2].replaceAll("[^A-Za-z0-9]", "").toLowerCase();
                 String[] lyricSplit = lyrics.split("\\s+");
                 HashMap<String,Double> counts = new HashMap<String,Double>();
                 double max = Double.MIN_VALUE;
