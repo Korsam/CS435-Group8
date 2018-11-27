@@ -24,7 +24,7 @@ public class Compare {
             if(val.length()!=0){
                 String[] input = val.split("\t");
                 // Title index 1, Artist index 2
-                String lyrics = input[2].replaceAll("[^A-Za-z0-9]", "").toLowerCase();
+                String lyrics = input[2].replaceAll("[^A-Za-z0-9\\s+]", "").toLowerCase();
                 String[] lyricSplit = lyrics.split("\\s+");
                 HashMap<String,Double> counts = new HashMap<String,Double>();
                 double max = Double.MIN_VALUE;
@@ -50,7 +50,7 @@ public class Compare {
         public void map(Object key, Text value, Context context) throws InterruptedException, IOException{
             String[] split = value.toString().split("\\s+");
             if(split.length>0){
-                context.write(new Text(split[1]), new Text(split[0]+"\t"+split[2]+"\t"+split[3]));
+                context.write(new Text(split[0]), new Text(split[1]+"\t"+split[2]+"\t"+split[3]));
             }
         }
     }
@@ -68,7 +68,8 @@ public class Compare {
                 if (split.length == 2) {
                     tf = Double.parseDouble(split[1]);
                 } else {
-                    words.put(split[0],new Pair<Double, Double>(Double.parseDouble(split[1]),Double.parseDouble(split[2])));
+                	if(Character.isDigit(split[2].charAt(0))||split[2].charAt(0)=='-') words.put(split[0],new Pair<Double, Double>(Double.parseDouble(split[1]),Double.parseDouble(split[2])));
+                	//else System.out.println("Err: "+t.toString());
                 }
             }
             // Compute region values
@@ -87,7 +88,6 @@ public class Compare {
         
         public void cleanup(Context context) throws IOException, InterruptedException {
         	for(String s:out.keySet()) {
-            	System.out.println(s+"\t"+out.get(s));
             	context.write(new Text(s), new Text(Math.sqrt(out.get(s))+""));
             }
         }
@@ -113,7 +113,7 @@ public class Compare {
         				m=region;
         			}
         		}
-        		if(min != Double.MAX_VALUE) context.write(new Text(m+"\tSUM"), new DoubleWritable(vals.remove(m)));
+        		if(min != Double.MAX_VALUE) context.write(new Text(m), new DoubleWritable(vals.remove(m)));
         	}
         }
     }
@@ -131,7 +131,7 @@ public class Compare {
         job.setOutputValueClass(Text.class);
 
         MultipleInputs.addInputPath(job, new Path(args[0]), TextInputFormat.class, CompareMapper.class);
-        MultipleInputs.addInputPath(job, new Path("Test/regions"), TextInputFormat.class, RegionMapper.class);
+        MultipleInputs.addInputPath(job, new Path("final.txt"), TextInputFormat.class, RegionMapper.class);
         FileOutputFormat.setOutputPath(job, new Path("intermediate"));
         job.waitForCompletion(true);
         
