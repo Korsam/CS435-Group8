@@ -1,10 +1,12 @@
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.apache.commons.math3.util.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -31,7 +33,7 @@ public class Compare {
                 double max = Double.MIN_VALUE;
                 for(String s:lyricSplit) {
                     if (counts.containsKey(s)) {
-                        counts.put(s, counts.get(s));
+                        counts.put(s, counts.get(s)+1.0);
                     }else {
                     	counts.put(s, 1.0);
                     }
@@ -73,7 +75,10 @@ public class Compare {
                 }
             }
             // Compute region values
+            ArrayList<Double> vals = new ArrayList<Double>();
+            int index = 0;
             for(String region:words.keySet()){
+            	if(tf==0.0) continue;
             	double val = tf * words.get(region).getSecond() - words.get(region).getFirst();
                 val = val * val;
                 if(out.containsKey(region)) {
@@ -81,38 +86,47 @@ public class Compare {
                 }
                 out.put(region,val);
             }
-            for(String s:out.keySet()) {
-            	System.out.println(s);
-            	context.write(new Text(s), new Text(out.get(s)+""));
+        }
+        
+        public void cleanup(Context context) throws IOException, InterruptedException {
+        	for(String s:out.keySet()) {
+            	System.out.println(s+"\t"+out.get(s));
+            	context.write(new Text(s), new Text(Math.sqrt(out.get(s))+""));
             }
         }
     }
     
-    public static class SumMapper extends Mapper<Object, Text, Text, LongWritable> {
+    public static class SumMapper extends Mapper<Object, Text, Text, DoubleWritable> {
+    	private HashMap<String,Double> vals = new HashMap<String,Double>();
         public void map(Object key, Text value, Context context) throws InterruptedException, IOException{
             String[] split = value.toString().split("\t");
             if(split.length>0){
-            	System.out.println("SUM\t"+split[1]);
-                context.write(new Text(split[0]), new LongWritable(Long.parseLong(split[1])));
+            	vals.put(split[0],Double.parseDouble(split[1]));
             }
         }
-    }
-    
-    public static class SumReducer extends Reducer<Text, LongWritable, Text, LongWritable>{
-        public void reduce(Text key, Iterable<LongWritable> values, Context context) throws InterruptedException, IOException{
-        	long sum = 0L;
-        	for(LongWritable l:values) {
-        		sum += l.get();
+        
+        public void cleanup(Context context) throws IOException, InterruptedException {
+        	for(int i = 0;i < 3;i++) {
+        		String m = "";
+        		double min = Double.MAX_VALUE;
+        		for(String region:vals.keySet()) {
+        			double v = vals.get(region);
+        			if(v<min) {
+        				min=v;
+        				m=region;
+        			}
+        		}
+        		if(min != Double.MAX_VALUE) context.write(new Text(m+"\tSUM"), new DoubleWritable(vals.remove(m)));
         	}
-        	context.write(key, new LongWritable(sum));
         }
     }
+   
 
     public static void main(String[] args) throws Exception{
         Configuration conf = new Configuration();
         Job job = Job.getInstance(conf, "Comparison");
         job.setJarByClass(Compare.class);
-        job.setCombinerClass(CompareReducer.class);
+        //job.setCombinerClass(CompareReducer.class);
         job.setReducerClass(CompareReducer.class);
         job.setNumReduceTasks(1);
 
@@ -128,11 +142,9 @@ public class Compare {
         Job job2 = Job.getInstance(conf2, "ComparisonFinal");
         job2.setJarByClass(Compare.class);
         job2.setMapperClass(SumMapper.class);
-        job2.setReducerClass(SumReducer.class);
-        job2.setNumReduceTasks(1);
         
         job2.setOutputKeyClass(Text.class);
-        job2.setOutputValueClass(LongWritable.class);
+        job2.setOutputValueClass(DoubleWritable.class);
         
         FileInputFormat.addInputPath(job2, new Path("intermediate"));
         FileOutputFormat.setOutputPath(job2, new Path(args[1]));
