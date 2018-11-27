@@ -16,7 +16,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 public class Compare {
 
     public static class CompareMapper extends Mapper<Object, Text, Text, Text>{
-        private static Text song = new Text("Song");
+        // Passes KEY: word VALUE: Song \t tf
         public void map(Object key, Text value, Context context) throws InterruptedException, IOException{
             String val = value.toString();
             if(val.length()!=0){
@@ -39,61 +39,49 @@ public class Compare {
                 }
                 for(String s:counts.keySet()) {
                     double tf = 0.5 + 0.5 * (counts.get(s)/max);
-                    context.write(song, new Text(s + "\t" + tf));
+                    context.write(new Text("s"), new Text("Song\t" + tf));
                 }
             }
         }
     }
 
     public static class RegionMapper extends Mapper<Object, Text, Text, Text> {
-        private static Text region = new Text("Region");
         public void map(Object key, Text value, Context context) throws InterruptedException, IOException{
-            if(value.toString().length()!=0) context.write(region, value);
+            String[] split = value.toString().split("\t");
+            if(split.length>0){
+                //System.out.println(split[0]+"\t"+split[1]+"\t"+split[2]);
+                context.write(new Text(split[1]), new Text(split[0]+"\t"+split[2]+"\t"+split[3]));
+            }
         }
     }
 
     public static class CompareReducer extends Reducer<Text, Text, Text, Text>{
-        private static HashMap<String, Double> words = new HashMap<String, Double>();
-        private HashMap<Text, HashMap<String, Pair<Double, Double>>> regions = new HashMap<Text, HashMap<String, Pair<Double,Double>>>();
-
+        public static HashMap<String,Double> out = new HashMap<String,Double>();
         public void reduce(Text key, Iterable<Text> values, Context context) throws InterruptedException, IOException{
-            String k = key.toString();
-            for(Text t:values){
-                context.write(key,t);
+            HashMap<String, Pair<Double,Double>> words = new HashMap<String, Pair<Double,Double>>();
+            double tf = 0.0;
+            String k = key.toString().trim();
+            String[] split = k.split("\t");
+            for(Text t:values) {
+                //song
+                if (k.length() == 2) {
+                    tf = Double.parseDouble(split[1]);
+                } else {
+                    words.put(split[0],new Pair<Double, Double>(Double.parseDouble(split[1]),Double.parseDouble(split[2])));
+                }
             }
 
-            //Song
-            if(k.equalsIgnoreCase("Song")){
-                for(Text t:values){
-                    String[] split = t.toString().split("\t");
-                    words.put(split[0],Double.parseDouble(split[1]));
+            for(String region:words.keySet()){
+                double val = tf * words.get(region).getSecond() - words.get(region).getFirst();
+                val = val * val;
+                if(out.containsKey(region)) {
+                    val += out.get(region);
                 }
-            }else{
-                HashMap<String, Pair<Double,Double>> wrds = new HashMap<String, Pair<Double,Double>>();
-                for(Text t:values){
-                    String[] split = t.toString().split("\t");
-                    Double pop = Double.parseDouble(split[1]);
-                    Double idf = Double.parseDouble(split[2]);
-                    wrds.put(split[0], new Pair<Double,Double>(pop,idf));
-                }
-                regions.put(key,wrds);
+                out.put(region,val);
             }
         }
 
         public void cleanup(Context context) throws InterruptedException, IOException{
-            HashMap<String,Double> out = new HashMap<String,Double>();
-            //Loop through each regions idf and pop values
-            for(Text key:regions.keySet()){
-                HashMap<String, Pair<Double,Double>> wrds = regions.get(key);
-                double value = 0.0;
-                //Loop through all the words in the song
-                for(String s:words.keySet()){
-                    if(wrds.get(key)==null) continue;
-                    double val = words.get(s)*wrds.get(key).getSecond() - wrds.get(key).getFirst();
-                    value =+ val*val;
-                }
-                out.put(key.toString(), Math.sqrt(value));
-            }
             int i = 0;
             while(i < 3) {
                 String m = "";
@@ -112,7 +100,6 @@ public class Compare {
                     break;
                 }
             }
-
         }
     }
 
@@ -120,18 +107,15 @@ public class Compare {
         Configuration conf = new Configuration();
         Job job = Job.getInstance(conf, "Comparison");
         job.setJarByClass(Compare.class);
+        job.setCombinerClass(CompareReducer.class);
         job.setReducerClass(CompareReducer.class);
+        job.setNumReduceTasks(1);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
         MultipleInputs.addInputPath(job, new Path(args[0]), TextInputFormat.class, CompareMapper.class);
-        File dir = new File("regions");
-        for(String name: dir.list()){
-            if(name.endsWith(".csv")){
-                MultipleInputs.addInputPath(job, new Path(name), TextInputFormat.class, RegionMapper.class);
-            }
-        }
+        MultipleInputs.addInputPath(job, new Path("Test/regions"), TextInputFormat.class, RegionMapper.class);
 
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
         job.waitForCompletion(true);
