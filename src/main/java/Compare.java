@@ -88,6 +88,7 @@ public class Compare {
                 double value = 0.0;
                 //Loop through all the words in the song
                 for(String s:words.keySet()){
+                    if(wrds.get(key)==null) continue;
                     double val = words.get(s)*wrds.get(key).getSecond() - wrds.get(key).getFirst();
                     value =+ val*val;
                 }
@@ -125,18 +126,14 @@ public class Compare {
         job.setOutputValueClass(Text.class);
 
         MultipleInputs.addInputPath(job, new Path(args[0]), TextInputFormat.class, CompareMapper.class);
-        if(args[1].equalsIgnoreCase("all")){
-            File dir = new File("regions");
-            for(String name: dir.list()){
-                if(name.endsWith(".csv")){
-                    MultipleInputs.addInputPath(job, new Path(name), TextInputFormat.class, RegionMapper.class);
-                }
+        File dir = new File("regions");
+        for(String name: dir.list()){
+            if(name.endsWith(".csv")){
+                MultipleInputs.addInputPath(job, new Path(name), TextInputFormat.class, RegionMapper.class);
             }
-        }else{
-            MultipleInputs.addInputPath(job, new Path(args[1]), TextInputFormat.class, RegionMapper.class);
         }
 
-        FileOutputFormat.setOutputPath(job, new Path(args[2]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
         job.waitForCompletion(true);
     }
 }
